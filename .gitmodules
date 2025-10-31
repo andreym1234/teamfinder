@@ -1,0 +1,3 @@
+[submodule "teamfinder"]
+	path = teamfinder
+	url = https://github.com/andreym1234/teamfinder
