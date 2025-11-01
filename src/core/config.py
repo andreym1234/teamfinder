@@ -1,16 +1,13 @@
 # src/core/config.py
-import os
-from dataclasses import dataclass
+from pydantic_settings import BaseSettings
 
-@dataclass
-class Settings:
-    telegram_bot_token: str
+class Settings(BaseSettings):
+    telegram_bot_token: str | None = None
     database_url: str
 
-def get_settings() -> Settings:
-    return Settings(
-        telegram_bot_token=os.getenv("TELEGRAM_BOT_TOKEN", ""),
-        database_url=os.getenv("DATABASE_URL", "postgresql://postgres:password@localhost:5432/teamfinder"),
-    )
+    class Config:
+        env_file = ".env"
+        env_prefix = ""
+        case_sensitive = False
 
-settings = get_settings()
+settings = Settings()

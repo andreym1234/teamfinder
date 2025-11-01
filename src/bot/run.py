@@ -1,18 +1,13 @@
-# teamfinder/src/bot/run.py
+# src/bot/run.py
 import logging
+import asyncio
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
-from pydantic_settings import BaseSettings
 
-from core.db import engine, AsyncSessionLocal, Base
-from repositories.users import upsert_from_tg_profile
+from src.core.config import settings
+from src.core.db import engine, AsyncSessionLocal, Base
+from src.repositories.users import upsert_from_tg_profile
 
-class Settings(BaseSettings):
-    TELEGRAM_BOT_TOKEN: str
-    class Config:
-        env_file = ".env"
-
-settings = Settings()
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("bot")
 
@@ -34,12 +29,29 @@ async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"Привет, {u.first_name}! Твой id в БД: {user.id}")
 
 async def main():
+    # 1) всё в одном event loop
     await ensure_schema()
-    app = ApplicationBuilder().token(settings.TELEGRAM_BOT_TOKEN).build()
+
+    app = ApplicationBuilder().token(settings.telegram_bot_token).build()
     app.add_handler(CommandHandler("start", start_cmd))
-    log.info("Bot started.")
-    await app.run_polling()
+
+    log.info("Bot started (async).")
+
+    # 2) ручной lifecycle вместо run_polling()
+    await app.initialize()
+    await app.start()
+    await app.updater.start_polling()
+
+    try:
+        # 3) держим приложение "вечно"
+        await asyncio.Future()
+    except asyncio.CancelledError:
+        pass
+    finally:
+        # 4) корректная остановка
+        await app.updater.stop()
+        await app.stop()
+        await app.shutdown()
 
 if __name__ == "__main__":
-    import asyncio
     asyncio.run(main())

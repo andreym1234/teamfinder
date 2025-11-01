@@ -1,21 +1,22 @@
 # src/core/db.py
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
-
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+from sqlalchemy.orm import DeclarativeBase
 from src.core.config import settings
 
-engine = create_engine(
-    settings.database_url,
-    pool_pre_ping=True,
+engine = create_async_engine(
+    settings.database_url,  # postgresql+asyncpg://...
     future=True,
+    pool_pre_ping=True,
 )
 
-SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
-Base = declarative_base()
+AsyncSessionLocal: async_sessionmaker[AsyncSession] = async_sessionmaker(
+    bind=engine, autoflush=False, expire_on_commit=False
+)
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+class Base(DeclarativeBase):
+    pass
+
+# зависимость под fastapi/или просто convenience
+async def get_db():
+    async with AsyncSessionLocal() as session:
+        yield session

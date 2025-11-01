@@ -1,14 +1,14 @@
-# src/models/user.py
-from typing import Any, Dict, List, Optional
-from sqlalchemy import BigInteger, Integer, Text
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.dialects.postgresql import JSONB, TIMESTAMP
+from sqlalchemy import BigInteger, Integer, Text, func
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 from src.core.db import Base
 
 class User(Base):
-    __tablename__ = "user"
+    __tablename__ = "users"
+    __table_args__ = {"schema": "teamfinder"}   # <<-- НОВАЯ СХЕМА
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     telegram_id: Mapped[int] = mapped_column(BigInteger, unique=True, nullable=False)
@@ -30,5 +30,9 @@ class User(Base):
     links: Mapped[Dict[str, Any]] = mapped_column(JSONB, default=dict)
     bio: Mapped[Optional[str]] = mapped_column(Text)
 
-    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), default=datetime.utcnow, nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )

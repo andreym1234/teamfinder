@@ -1,25 +1,38 @@
 # src/repositories/users.py
-from sqlalchemy.orm import Session
-from sqlalchemy import select
+from sqlalchemy import select, insert
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.ext.asyncio import AsyncSession
 from src.models.user import User
 
-def get_by_telegram_id(db: Session, telegram_id: int) -> User | None:
-    return db.execute(select(User).where(User.telegram_id == telegram_id)).scalar_one_or_none()
-
-def upsert_from_tg(db: Session, tg_user) -> User:
-    """
-    tg_user: telegram.User
-    """
-    user = get_by_telegram_id(db, tg_user.id)
-    if user is None:
-        user = User(telegram_id=tg_user.id)
-
-    user.username = tg_user.username
-    user.name = tg_user.first_name
-    user.surname = tg_user.last_name
-    user.language_code = getattr(tg_user, "language_code", None)
-
-    db.add(user)
-    db.commit()
-    db.refresh(user)
+async def upsert_from_tg_profile(
+    session: AsyncSession,
+    tg_id: int,
+    username: str | None,
+    first_name: str | None,
+    last_name: str | None,
+    lang: str | None,
+):
+    stmt = pg_insert(User).values(
+        telegram_id=tg_id,
+        username=username,
+        name=first_name,
+        surname=last_name,
+        language_code=lang,
+    ).on_conflict_do_update(
+        index_elements=[User.telegram_id],
+        set_={
+            "username": username,
+            "name": first_name,
+            "surname": last_name,
+            "language_code": lang,
+        }
+    ).returning(User)
+    res = await session.execute(stmt)
+    user = res.scalar_one()
+    await session.commit()
     return user
+
+async def get_by_telegram_id(session: AsyncSession, tg_id: int) -> User | None:
+    q = select(User).where(User.telegram_id == tg_id)
+    res = await session.execute(q)
+    return res.scalar_one_or_none()
